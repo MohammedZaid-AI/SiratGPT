@@ -1,0 +1,9 @@
+langchain
+streamlit
+huggingface
+langchain-community
+datasets
+
+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
+
+tiiuae/falcon-7b-instruct

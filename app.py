@@ -9,7 +9,7 @@ from langchain.chains import LLMChain
 from PyPDF2 import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-os.environ["HUGGINGFACEHUB_API_TOKEN"]="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"
+os.environ["HUGGINGFACEHUB_API_TOKEN"]=""
 
 
 
@@ -91,6 +91,7 @@ if submit:
     if hadith:
         hadith_summary=chain.run(f"summarize this hadith :{hadith}")
         st.write(hadith)
+        st.write()
         st.write(hadith_summary)
 
     else:

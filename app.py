@@ -3,13 +3,15 @@ import pymongo
 import streamlit as st
 import logging
 logging.basicConfig(level=logging.INFO)
+from dotenv import load_dotenv
 from langchain_community.llms import HuggingFaceHub
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from PyPDF2 import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-os.environ["HUGGINGFACEHUB_API_TOKEN"]=""
+load_dotenv()
+os.environ["HUGGINGFACEHUB_API_TOKEN"]=os.getenv("HUGGING_FACE_TOKEN")
 
 
 
@@ -47,7 +49,7 @@ def get_quran():
     chunks=text_splitter.split_text(text)
     return chunks
 
-quran_chunks=get_quran
+quran_chunks=get_quran()
 def search_info(query):
     words=query.lower().split()
     matching_chunks=[]

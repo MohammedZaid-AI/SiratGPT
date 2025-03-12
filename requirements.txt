@@ -3,6 +3,6 @@ streamlit
 huggingface
 langchain-community
 datasets
-
+PyPDF2
 
 

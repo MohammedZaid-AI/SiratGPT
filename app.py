@@ -23,7 +23,6 @@ def get_hadith(query, limit=3):
     if any(char.isdigit() for char in query):
         search_query = {"reference": {"$regex": query.strip(), "$options": "i"}}
     else:
-        # General keyword search
         words = query.lower().split()
         search_query = {
             "$or": [
@@ -37,19 +36,25 @@ def get_hadith(query, limit=3):
         dataset = ""
         for i, hadith in enumerate(results):
             dataset += f"""
-            Hadith #{i+1}
+    Hadith {i+1}
             Book: {hadith.get('book', 'Unknown')}
             Narrated by: {hadith.get('narrated', 'Unknown')}
             Reference: {hadith.get('reference', 'Unknown')}
             Hadith: {hadith.get('english', 'No text available')}
             """
         return dataset
-    return "No matching Hadith found in the database."  
+    return None 
+    
+def get_response(query):
+    response=llm.run(query)
+    return response
+
 
 
 llm=HuggingFaceHub(
     repo_id="mistralai/Mistral-7B-Instruct-v0.3",
-    model_kwargs={"temperature":0.7}
+    task="text-generation",
+    model_kwargs={"temperature":0.5}
 )
 
 
@@ -82,16 +87,6 @@ prompt=PromptTemplate(
 )
 
 
-# hadith_prompt=PromptTemplate(
-#     input_variables=["dataset","query"],
-#     template="You are analyzing Islamic texts. Review this dataset: {dataset}\n\nAnswer the following query: {query}\nProvide a concise and informative response based on the dataset."
-# )
-
-# hadith_answer=LLMChain(
-#     llm=llm,
-#     prompt=hadith_prompt
-# )
-
 
 
 chain=LLMChain(
@@ -103,13 +98,17 @@ submit=st.button("GENERATE")
 
 
 if submit:
-
-    hadith=get_hadith(input_text)
+    hadith = get_hadith(input_text)
 
     if hadith:
-        output=chain.run(dataset=hadith,input=input_text)
-        st.write(output)
+        output = chain.run(dataset=hadith, input=input_text)
+    else:
+        output = get_response(input_text)
+        
+    if "Response:" in output:
+        clean_response = output.split("Response:")[-1].strip()
+    else:
+        clean_response = output.strip()
 
-    # else:    
-    #     response=chain.run(collection="Hadiths", input=input_text)
-    #     st.write(response)      
+    st.write(clean_response)
+     

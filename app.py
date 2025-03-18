@@ -20,17 +20,17 @@ db = client["SiratGPT"]
 collection = db["Hadiths"]
 
 def get_hadith(query, limit=3):
-    if any(char.isdigit() for char in query):
-        search_query = {"reference": {"$regex": query.strip(), "$options": "i"}}
-    else:
-        words = query.lower().split()
-        search_query = {
-            "$or": [
-                {"english": {"$regex": f".*{word}.*", "$options": "i"}} for word in words
-            ] + [{"book": {"$regex": query.strip(), "$options": "i"}}]
-        }
+    exact_match_query = {"reference": {"$regex": f"^{query.strip()}$", "$options": "i"}}
+    broader_match_query = {
+        "$or": [
+            {"english": {"$regex": f".*{query.strip()}.*", "$options": "i"}},
+            {"book": {"$regex": f".*{query.strip()}.*", "$options": "i"}}
+        ]
+    }
+    results = list(collection.find(exact_match_query).limit(limit))
+    if not results:
+        results = list(collection.find(broader_match_query).limit(limit))
 
-    results = list(collection.find(search_query).limit(limit))
 
     if results:
         dataset = ""
@@ -65,7 +65,7 @@ def get_quran(query):
 
     
 def get_response(query):
-    response=llm.run(query)
+    response=llm.predict(query)
     return response
 
 
@@ -73,7 +73,10 @@ def get_response(query):
 llm=HuggingFaceHub(
     repo_id="mistralai/Mistral-7B-Instruct-v0.3",
     task="text-generation",
-    model_kwargs={"temperature":0.5}
+    model_kwargs={
+        "temperature":0.5,
+        "max_new_tokens": 300 
+        }
 )
 
 
@@ -81,28 +84,37 @@ st.title("ISLAM GPT")
 st.header("LETS KNOW MORE ABOUT ISLAM")
 input_text=st.text_input("ENTER YOUR CHAT HERE")
 
-system_prompt = """
-You are an expert Islamic scholar and a knowledgeable assistant skilled in retrieving authentic Islamic information. You can fetch Hadith details from a MongoDB database and Quranic references from a PDF document to provide accurate, concise, and clear explanations.
 
-When a user asks for a Hadith, search the MongoDB database for relevant content. When a Quranic reference is requested, extract the required text from the provided PDF document. If no relevant content is found in either source, generate an insightful response based on your Islamic knowledge.
+system_prompt = """
+You are an expert Islamic scholar and MongoDB expert with access to both a Hadith database and Quran PDF. 
+Your role is to provide accurate information from both sources. If the user asks about a topic found in both, combine the information clearly.
+
+When answering:
+1. If the query matches a Hadith, prioritize information from the MongoDB database.
+2. If the query relates to Quranic content, extract the answer from the PDF.
+3. If both sources provide relevant data, combine them for a detailed answer.
+4. If no match is found, provide a helpful response based on your broader knowledge.
 
 Example 1:
-**User Query:** "Tell me about Sunan Ibn Majah 1446"
-**Response:** Hadith #1446 from Sunan Ibn Majah states... (include details here).
+**User Query:** "Tell me about Ramadan."
+**Response:** 
+Here’s what I found from Hadith: (Hadith details)
+Here’s what I found from the Quran: (Quran details)
 
 Example 2:
-**User Query:** "I need a Hadith about patience."
-**Response:** Here’s a Hadith on patience: (include relevant details).
+**User Query:** "Tell me about patience."
+**Response:** 
+Here’s a Hadith on patience: (Hadith details)
+Here’s a relevant Quran verse on patience: (Quran details)
 
-Example 3:
-**User Query:** "What does Surah Ar-Rahman say?"
-**Response:** Surah Ar-Rahman emphasizes Allah's blessings and repeatedly asks: "Then which of the favors of your Lord will you deny?" (Include relevant verse details).
-
-Database (Hadith/Quran): {dataset}
+Database and PDF Content: {dataset}
 User Query: {input}
 
 Response:
 """
+
+
+
 
 
 
@@ -124,20 +136,18 @@ submit=st.button("GENERATE")
 
 if submit:
     hadith = get_hadith(input_text)
-    quran=get_quran(input_text)
-    
-    
-    if hadith:
-        output = chain.run(dataset=hadith, input=input_text)
-    elif quran:
-        output = chain.run(dataset=quran, input=input_text)
-    else:
-        output=get_response(input=input_text)
-        
-    if "Response:" in output:
-        clean_response = output.split("Response:")[-1].strip()
-    else:
-        clean_response = output.strip()
+    quran = get_quran(input_text)
+    ai_response = get_response(input_text)
+    combined_data = ""
 
-    st.write(clean_response)
-     
+    if hadith:
+        combined_data += hadith + "\n"
+    if quran:
+        combined_data += quran + "\n"
+    if ai_response:
+        combined_data += ai_response + "\n"
+        
+    if combined_data:
+        output = chain.run(dataset=combined_data, input=input_text)
+
+    st.write(output.split("Response:")[-1].strip())

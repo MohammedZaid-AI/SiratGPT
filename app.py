@@ -2,16 +2,21 @@ import os
 import pymongo
 import streamlit as st
 import logging
+from sentence_transformers import SentenceTransformer
 logging.basicConfig(level=logging.INFO)
 from dotenv import load_dotenv
 from langchain_community.llms import HuggingFaceHub
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from langchain_community.vectorstores import FAISS
 from PyPDF2 import PdfReader
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
-os.environ["HUGGINGFACEHUB_API_TOKEN"]=os.getenv("HUGGING_FACE_TOKEN")
+import os
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = "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"
+
 
 
 
@@ -59,14 +64,13 @@ def get_hadith(query, limit=3):
     return None 
 
 def get_quran(query, limit=5):
-    pdf_reader = PdfReader("Quran-English.pdf")
+    pdf_reader = PdfReader("quran-english-translation.pdf")
     text = ""
     
     for pagenum, page in enumerate(pdf_reader.pages):           #.pages is property of pdf_reader that holds all the pages of the pdf
         content = page.extract_text()                            #page holds the content of the  each page of the pdf
         if content:
-            text += content
-    print(text[:500]) 
+            text += content + "\n"
         
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=2000,
@@ -74,24 +78,26 @@ def get_quran(query, limit=5):
     )
     
     chunks = text_splitter.split_text(text)
-    matched_chunks = []
+    embeddings= HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-    for chunk in chunks:
-        if query.lower() in chunk.lower():
-            matched_chunks.append(chunk)
-            if len(matched_chunks) == limit: 
-                break  
 
-    return "\n\n".join(matched_chunks) if matched_chunks else None
+    vectorstore=FAISS.from_texts(chunks,embedding=embeddings)
+    results= vectorstore.similarity_search(query,limit=limit)
+    
+    if not results:
+        return "No relevant content found in the Quran."
 
+    return "\n".join([r.page_content for r in results])
 
 def get_response(query):
     logging.info(f"Generating AI response for: {query}")
     response = llm.predict(query)
     return response
 
-
-
+def myself(query):
+        resp="SiratGPT was created by Zaid, a visionary AI engineer and entrepreneur who is passionate about fusing technology with knowledge. As the Founder of HatchUp.ai, Zaid built SiratGPT to bring deep Islamic insights to the digital world, combining modern AI techniques with timeless wisdom. His expertise in AI, app development, and automation drives this project, making SiratGPT a unique and intelligent guide for seekers of knowledge."
+        return resp
+    
 llm=HuggingFaceHub(
     repo_id="mistralai/Mistral-7B-Instruct-v0.3",
     task="text-generation",
@@ -102,7 +108,7 @@ llm=HuggingFaceHub(
 )
 
 
-st.title("ISLAM GPT")
+st.title("Sirat GPT")
 st.header("LETS KNOW MORE ABOUT ISLAM")
 input_text=st.text_input("ENTER YOUR CHAT HERE")
 
@@ -128,6 +134,7 @@ Here’s a relevant Quran verse from the PDF on patience: (Quran details)
 
 Database and PDF Content: {dataset}
 User Query: {input}
+
 
 Response:
 """
@@ -158,7 +165,6 @@ submit=st.button("GENERATE")
 if submit:
     hadith = get_hadith(input_text)
     quran = get_quran(input_text)
-    #ai_response = get_response(input_text)
     
     combined_data = ""
 
@@ -167,7 +173,21 @@ if submit:
     if quran:
         combined_data += quran + "\n"
     
-    
-    if combined_data.strip():  
         output = chain.run(dataset=combined_data, input=input_text)
-        st.write(output.strip())
+        
+    if input_text is ["Who created Sirat GPT?","who made you","who created you","who is your creator"]:
+        output3="SiratGPT was created by Zaid, a visionary AI engineer and entrepreneur who is passionate about fusing technology with knowledge. As the Founder of HatchUp.ai, Zaid built SiratGPT to bring deep Islamic insights to the digital world, combining modern AI techniques with timeless wisdom. His expertise in AI, app development, and automation drives this project, making SiratGPT a unique and intelligent guide for seekers of knowledge."
+        st.write(output3)
+         
+    if "Response:" in output:
+         clean_response = output.split("Response:")[-1].strip()
+    
+         
+    st.write(clean_response) 
+    
+    
+output2=get_response(input_text)   
+button=st.toggle("Deep Search")
+if button:
+        st.write("Deep Search mode is on    ")
+        st.write(output2)

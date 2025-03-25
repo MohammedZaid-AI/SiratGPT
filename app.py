@@ -15,7 +15,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 import os
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = "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"
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
 
 
@@ -186,8 +186,9 @@ if submit:
     st.write(clean_response) 
     
     
-output2=get_response(input_text)   
+
 button=st.toggle("Deep Search")
 if button:
-        st.write("Deep Search mode is on    ")
+        st.write("Deep Search mode is on")
+        output2=get_response(input_text)   
         st.write(output2)

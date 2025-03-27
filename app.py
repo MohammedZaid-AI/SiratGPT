@@ -1,5 +1,6 @@
 import os
 import pymongo
+import ollama
 import streamlit as st
 import logging
 from sentence_transformers import SentenceTransformer
@@ -8,6 +9,7 @@ from dotenv import load_dotenv
 from langchain_community.llms import HuggingFaceHub
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from langchain_community.llms import Ollama
 from langchain_community.vectorstores import FAISS
 from PyPDF2 import PdfReader
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -27,7 +29,6 @@ collection = db["Hadiths"]
 def get_hadith(query, limit=3):
     logging.info(f"Searching for hadith with query: {query}")
     
-    # Create queries for different search strategies
     exact_match_query = {"reference": {"$regex": f"{query.strip()}", "$options": "i"}}
     
     broader_match_query = {
@@ -38,16 +39,15 @@ def get_hadith(query, limit=3):
         ]
     }
 
-    # Try exact match first
+
     results = list(collection.find(exact_match_query).limit(limit))
     logging.info(f"Exact match results: {len(results)}")
 
-    # If no exact matches, try broader match
+
     if not results:
         results = list(collection.find(broader_match_query).limit(limit))
         logging.info(f"Broader match results: {len(results)}")
 
-    # Format results if any found
     if results:
         dataset = ""
         for i, hadith in enumerate(results):
@@ -87,26 +87,27 @@ def get_quran(query, limit=5):
     if not results:
         return "No relevant content found in the Quran."
 
-    return "\n".join([r.page_content for r in results])
+    return "\n".join([r.page_content for r in results])            #r is retrived chunk based on query and 
+                                                                   #page_content is a property fro FAISS holds the retrived chunk and accessing text content from chunk
+                                                                   #results → This is a list of retrieved chunks from FAISS after similarity search.
+                                                                   #for r in results → Loops through each retrieved result.
+                                                                   #[r.page_content for r in results] → Creates a list of all the extracted chunks.
+                                                                   #"\n".join()) → Joins all the extracted chunks into a single string, separated by newlines (\n).
+                                                                   #chunk was originally text, but FAISS converts it into a Document, where page_content holds the text.
+
 
 def get_response(query):
     logging.info(f"Generating AI response for: {query}")
     response = llm.predict(query)
     return response
 
-def myself(query):
-        resp="SiratGPT was created by Zaid, a visionary AI engineer and entrepreneur who is passionate about fusing technology with knowledge. As the Founder of HatchUp.ai, Zaid built SiratGPT to bring deep Islamic insights to the digital world, combining modern AI techniques with timeless wisdom. His expertise in AI, app development, and automation drives this project, making SiratGPT a unique and intelligent guide for seekers of knowledge."
-        return resp
+
     
-llm=HuggingFaceHub(
+llm =HuggingFaceHub(
     repo_id="mistralai/Mistral-7B-Instruct-v0.3",
     task="text-generation",
-    model_kwargs={
-        "temperature":0.5,
-        "max_new_tokens": 300 
-        }
+    model_kwargs={"temperature":0.5,"max_new_tokens":300}
 )
-
 
 st.title("Sirat GPT")
 st.header("LETS KNOW MORE ABOUT ISLAM")
@@ -124,13 +125,13 @@ Example 1:
 **User Query:** "Tell me about Ramadan."
 **Response:** 
 Here’s what I found from Hadith: (Hadith details)
-Here’s what I found from the Quran PDF: (Quran details)
+Here’s what I found from the Quran : (Quran details)
 
 Example 2:
 **User Query:** "Tell me about patience."
 **Response:** 
 Here’s a Hadith on patience: (Hadith details)
-Here’s a relevant Quran verse from the PDF on patience: (Quran details)
+Here’s a relevant Quran verse from the Quran on patience: (Quran details)
 
 Database and PDF Content: {dataset}
 User Query: {input}
@@ -138,13 +139,6 @@ User Query: {input}
 
 Response:
 """
-
-
-
-
-
-
-
 
 prompt=PromptTemplate(
     input_variables=["dataset","input"],
@@ -163,28 +157,31 @@ submit=st.button("GENERATE")
 
 
 if submit:
-    hadith = get_hadith(input_text)
-    quran = get_quran(input_text)
+    if input_text =="Who created sirat gpt?":
     
-    combined_data = ""
-
-    if hadith:
-        combined_data += hadith + "\n"
-    if quran:
-        combined_data += quran + "\n"
-    
-        output = chain.run(dataset=combined_data, input=input_text)
-        
-    if input_text is ["Who created Sirat GPT?","who made you","who created you","who is your creator"]:
         output3="SiratGPT was created by Zaid, a visionary AI engineer and entrepreneur who is passionate about fusing technology with knowledge. As the Founder of HatchUp.ai, Zaid built SiratGPT to bring deep Islamic insights to the digital world, combining modern AI techniques with timeless wisdom. His expertise in AI, app development, and automation drives this project, making SiratGPT a unique and intelligent guide for seekers of knowledge."
         st.write(output3)
-         
-    if "Response:" in output:
-         clean_response = output.split("Response:")[-1].strip()
-    
-         
-    st.write(clean_response) 
-    
+        
+    else:   
+        hadith = get_hadith(input_text)
+        quran = get_quran(input_text)
+                
+        combined_data = ""
+
+        if hadith:
+            combined_data += hadith + "\n"
+        if quran:
+            combined_data += quran + "\n"
+                
+        output = chain.run(dataset=combined_data, input=input_text)
+                    
+                    
+        if "Response:" in output:
+            clean_response = output.split("Response:")[-1].strip()
+                
+                    
+            st.write(clean_response) 
+                
     
 
 button=st.toggle("Deep Search")

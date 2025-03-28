@@ -83,36 +83,6 @@
             background-color: #C9A41B;
         }
         
-        .sidebar-section {
-            padding: 0 20px 10px;
-        }
-        
-        .sidebar-section-title {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding-left: 10px;
-        }
-        
-        .history-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-bottom: 5px;
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.9);
-            transition: background-color 0.2s;
-        }
-        
-        .history-item:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-        
         .deep-search-toggle {
             margin-top: auto;
             padding: 20px;
@@ -161,34 +131,12 @@
         /* Header */
         .header {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
             padding: 15px 30px;
             background-color: var(--white);
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             z-index: 5;
-        }
-        
-        .source-selector {
-            display: flex;
-            background-color: var(--secondary);
-            border-radius: 8px;
-            padding: 4px;
-        }
-        
-        .source-option {
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            color: var(--text-light);
-            transition: all 0.2s;
-        }
-        
-        .source-option.active {
-            background-color: var(--white);
-            color: var(--primary);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         
         .profile-menu {
@@ -484,7 +432,7 @@
                 padding: 20px 10px 15px;
             }
             
-            .logo-text, .sidebar-section-title, .history-item span, .deep-search-toggle span, .new-chat-btn span {
+            .logo-text, .deep-search-toggle span, .new-chat-btn span {
                 display: none;
             }
             
@@ -516,22 +464,11 @@
             <span>New Conversation</span>
         </button>
         
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">Recent Conversations</div>
-            <div class="history-item">
-                <i class="fas fa-history"></i>
-                <span>What is Ramadan?</span>
-            </div>
-            <div class="history-item">
-                <i class="fas fa-history"></i>
-                <span>Prayer times in Islam</span>
-            </div>
-            <div class="history-item">
-                <i class="fas fa-history"></i>
-                <span>Meaning of Zakat</span>
-            </div>
+        <div style="padding: 10px 20px; font-size: 12px; color: rgba(255, 255, 255, 0.7); text-align: center; line-height: 1.4;">
+            Note: This chatbot provides responses based on available sources but may not always be fully accurate. For precise Islamic guidance, please consult a qualified scholar or trusted religious authority.
         </div>
         
+        <!-- Deep search toggle pushed to bottom of sidebar -->
         <div class="deep-search-toggle">
             <div class="toggle-switch" id="deepSearchToggle">
                 <div class="toggle-handle"></div>
@@ -544,12 +481,6 @@
     <div class="main-content">
         <!-- Header -->
         <div class="header">
-            <div class="source-selector">
-                <div class="source-option active">Hadith</div>
-                <div class="source-option">Quran</div>
-                <div class="source-option">Both</div>
-            </div>
-            
             <div class="profile-menu">
                 <div class="theme-toggle">
                     <i class="fas fa-sun"></i>
@@ -618,25 +549,14 @@
             const sendBtn = document.getElementById('sendBtn');
             const deepSearchToggle = document.getElementById('deepSearchToggle');
             const promptCards = document.querySelectorAll('.prompt-card');
-            const sourceOptions = document.querySelectorAll('.source-option');
             const referencesList = document.getElementById('referencesList');
             
             let deepSearchActive = false;
-            let selectedSource = 'Hadith';
             
             // Toggle deep search
             deepSearchToggle.addEventListener('click', function() {
                 this.classList.toggle('active');
                 deepSearchActive = !deepSearchActive;
-            });
-            
-            // Source selector
-            sourceOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    sourceOptions.forEach(opt => opt.classList.remove('active'));
-                    this.classList.add('active');
-                    selectedSource = this.textContent;
-                });
             });
             
             // Add message to chat
@@ -672,19 +592,19 @@
                     updateReferences(content);
                 }
             }
-            
+                
             // Update references panel
             function updateReferences(content) {
                 // Clear previous references
                 referencesList.innerHTML = '';
                 
-                // Add a sample reference (in a real app, you would extract actual references)
+                // Add a sample reference
                 const referenceItem = document.createElement('div');
                 referenceItem.classList.add('reference-item');
                 
                 const referenceTitle = document.createElement('div');
                 referenceTitle.classList.add('reference-title');
-                referenceTitle.textContent = selectedSource === 'Both' ? 'Sources Used' : selectedSource;
+                referenceTitle.textContent = deepSearchActive ? 'Deep Search Results' : 'Sources Used';
                 
                 const referenceText = document.createElement('div');
                 referenceText.classList.add('reference-text');
@@ -695,7 +615,7 @@
                 referencesList.appendChild(referenceItem);
             }
             
-            // Send message to backend - UPDATED TO CONNECT TO SERVER
+            // Send message to backend
             async function sendMessage(text) {
                 addMessage(text, true);
                 
@@ -710,7 +630,7 @@
                     const formData = new FormData();
                     formData.append('input_text', text);
                     formData.append('deep_search', deepSearchActive);
-                    formData.append('source', selectedSource.toLowerCase());
+                    formData.append('source', 'both'); // Always use 'both' since we removed the selector
                     
                     // Send request to Flask server
                     const response = await fetch('/api/query', {
@@ -728,7 +648,7 @@
                     const data = await response.json();
                     
                     // Add the response to the chat
-                    const source = deepSearchActive ? 'Using Deep Search Mode' : 'Source: ' + selectedSource;
+                    const source = deepSearchActive ? 'Using Deep Search Mode' : 'Source: Both Hadith and Quran';
                     addMessage(data.response, false, source);
                 } catch (error) {
                     console.error('Error:', error);
@@ -785,7 +705,7 @@
                 // Clear chat history
                 chatMessages.innerHTML = '';
                 
-                // Show watermark again
+                // Show watermark
                 const watermarkHTML = `
                     <div class="watermark">
                         <div class="watermark-icon"><i class="fas fa-moon"></i></div>
@@ -803,18 +723,10 @@
                 `;
             });
             
-            // Initialize by displaying a welcome message
+            // Initialize by displaying only the welcome message
             setTimeout(function() {
                 addMessage("Welcome to SiratGPT! Ask me anything about Islamic teachings, and I'll provide information from reliable sources.", false, "System");
             }, 1000);
-            
-            // Add history click handlers
-            document.querySelectorAll('.history-item').forEach(item => {
-                item.addEventListener('click', function() {
-                    const text = this.querySelector('span').textContent;
-                    sendMessage(text);
-                });
-            });
             
             // Add theme toggle functionality
             document.querySelector('.theme-toggle').addEventListener('click', function() {

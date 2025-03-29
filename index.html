@@ -84,19 +84,19 @@
         }
         
         .deep-search-toggle {
-            margin-top: auto;
-            padding: 20px;
             display: flex;
             align-items: center;
-            gap: 10px;
-            color: rgba(255, 255, 255, 0.9);
+            gap: 8px;
+            color: var(--text-light);
+            font-size: 13px;
+            justify-content: center;
         }
         
         .toggle-switch {
             position: relative;
-            width: 42px;
-            height: 22px;
-            background-color: rgba(255, 255, 255, 0.2);
+            width: 36px;
+            height: 20px;
+            background-color: rgba(0, 0, 0, 0.1);
             border-radius: 30px;
             cursor: pointer;
         }
@@ -105,11 +105,12 @@
             position: absolute;
             top: 2px;
             left: 2px;
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             background-color: var(--white);
             border-radius: 50%;
             transition: transform 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
         
         .toggle-switch.active {
@@ -139,6 +140,14 @@
             z-index: 5;
         }
         
+        .menu-toggle {
+            display: none;
+            margin-right: auto;
+            font-size: 20px;
+            color: var(--text-light);
+            cursor: pointer;
+        }
+        
         .profile-menu {
             display: flex;
             align-items: center;
@@ -149,19 +158,6 @@
             cursor: pointer;
             color: var(--text-light);
             font-size: 18px;
-        }
-        
-        .profile-icon {
-            width: 36px;
-            height: 36px;
-            background-color: var(--primary);
-            color: var(--white);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            cursor: pointer;
         }
         
         /* Chat area */
@@ -297,12 +293,19 @@
             padding: 20px 15%;
             background-color: var(--white);
             border-top: 1px solid rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         
         .input-container {
             position: relative;
             display: flex;
             align-items: center;
+            background-color: var(--white);
+            border-radius: 30px;
+            padding: 5px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
         }
         
         .chat-input {
@@ -413,40 +416,112 @@
             }
             
             .chat-messages {
-                padding: 20px 10%;
+                padding: 20px 5%;
             }
             
             .input-area {
-                padding: 20px 10%;
+                padding: 20px 5%;
+            }
+            
+            .quick-prompts {
+                padding: 20px 5%;
             }
         }
         
         @media (max-width: 768px) {
             .sidebar {
-                width: 70px;
+                position: fixed;
+                width: 0;
                 overflow: hidden;
+                transition: width 0.3s ease;
+                z-index: 1000;
             }
             
-            .sidebar-header {
-                justify-content: center;
-                padding: 20px 10px 15px;
+            .sidebar.active {
+                width: 280px;
             }
             
-            .logo-text, .deep-search-toggle span, .new-chat-btn span {
-                display: none;
+            .main-content {
+                width: 100%;
             }
             
-            .new-chat-btn {
-                margin: 10px;
-                padding: 10px;
+            .header {
+                padding: 12px 15px;
+            }
+            
+            /* Add menu toggle button */
+            .menu-toggle {
+                display: block;
+                margin-right: auto;
+                font-size: 20px;
+                color: var(--text-light);
+                cursor: pointer;
+            }
+            
+            .quick-prompts {
+                padding: 15px 10px;
+            }
+            
+            .prompt-card {
+                flex: 1 0 100%;
+                max-width: none;
+                margin: 0 10px;
             }
             
             .chat-messages {
-                padding: 20px 5%;
+                padding: 15px 10px;
+            }
+            
+            .message {
+                max-width: 95%;
             }
             
             .input-area {
-                padding: 15px 5%;
+                padding: 10px;
+            }
+            
+            .chat-input {
+                padding: 12px 45px 12px 15px;
+                font-size: 14px;
+            }
+            
+            /* Adjust disclaimer text for better mobile visibility */
+            .sidebar .disclaimer {
+                padding: 10px;
+                font-size: 11px;
+            }
+            
+            .deep-search-toggle {
+                font-size: 12px;
+            }
+            
+            .toggle-switch {
+                width: 32px;
+                height: 18px;
+            }
+            
+            .toggle-handle {
+                width: 14px;
+                height: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .prompt-card {
+                padding: 12px;
+            }
+            
+            .prompt-title {
+                font-size: 14px;
+            }
+            
+            .prompt-description {
+                font-size: 12px;
+            }
+            
+            .message-inner {
+                padding: 12px 14px;
+                font-size: 14px;
             }
         }
     </style>
@@ -467,25 +542,19 @@
         <div style="padding: 10px 20px; font-size: 12px; color: rgba(255, 255, 255, 0.7); text-align: center; line-height: 1.4;">
             Note: This chatbot provides responses based on available sources but may not always be fully accurate. For precise Islamic guidance, please consult a qualified scholar or trusted religious authority.
         </div>
-        
-        <!-- Deep search toggle pushed to bottom of sidebar -->
-        <div class="deep-search-toggle">
-            <div class="toggle-switch" id="deepSearchToggle">
-                <div class="toggle-handle"></div>
-            </div>
-            <span>Deep Search Mode</span>
-        </div>
     </div>
     
     <!-- Main content -->
     <div class="main-content">
         <!-- Header -->
         <div class="header">
+            <div class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
             <div class="profile-menu">
                 <div class="theme-toggle">
                     <i class="fas fa-sun"></i>
                 </div>
-                <div class="profile-icon">Z</div>
             </div>
         </div>
         
@@ -515,8 +584,8 @@
                         <div class="prompt-description">Learn about charity in Islam</div>
                     </div>
                     <div class="prompt-card">
-                        <div class="prompt-title">Tell me about Hajj</div>
-                        <div class="prompt-description">Discover the pilgrimage to Mecca</div>
+                        <div class="prompt-title">Who created sirat gpt?</div>
+                        <div class="prompt-description">Know the creator of sirat gpt</div>
                     </div>
                 </div>
                 
@@ -526,6 +595,12 @@
                         <button class="send-btn" id="sendBtn">
                             <i class="fas fa-paper-plane"></i>
                         </button>
+                    </div>
+                    <div class="deep-search-toggle">
+                        <div class="toggle-switch" id="deepSearchToggle">
+                            <div class="toggle-handle"></div>
+                        </div>
+                        <span>Deep Search Mode</span>
                     </div>
                 </div>
             </div>
@@ -747,6 +822,21 @@
                     document.documentElement.style.setProperty('--text', '#333333');
                     document.documentElement.style.setProperty('--text-light', '#666666');
                     document.documentElement.style.setProperty('--secondary', '#E8F4EF');
+                }
+            });
+            
+            // Add this to your existing JavaScript
+            document.querySelector('.menu-toggle').addEventListener('click', function() {
+                document.querySelector('.sidebar').classList.toggle('active');
+            });
+            
+            // Close sidebar when clicking outside
+            document.addEventListener('click', function(event) {
+                const sidebar = document.querySelector('.sidebar');
+                const menuToggle = document.querySelector('.menu-toggle');
+                
+                if (!sidebar.contains(event.target) && !menuToggle.contains(event.target)) {
+                    sidebar.classList.remove('active');
                 }
             });
         });

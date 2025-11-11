@@ -231,30 +231,13 @@ llm =ChatGoogleGenerativeAI(
 
 
 system_prompt = """
-        You are an expert Islamic scholar and MongoDB expert with access to both a Hadith database and Quran PDF. 
-        Your role is to provide **detailed information** from both sources without summarizing or altering the content. 
+...
+Database and PDF Content: {context}
+User Query: {input_text}
 
-        If the user asks for information from the Quran, **fetch content directly from the PDF** before responding. 
-        If no matching data is found in the Quran PDF or Hadith database, respond with "**No information found in the available sources.**"
+Response:
 
-        Example 1:
-        **User Query:** "Tell me about Ramadan."
-        **Response:** 
-        Here’s what I found from Hadith: (Hadith details)
-        Here’s what I found from the Quran : (Quran details)
-
-        Example 2:
-        **User Query:** "Tell me about patience."
-        **Response:** 
-        Here’s a Hadith on patience: (Hadith details)
-        Here’s a relevant Quran verse from the Quran on patience: (Quran details)
-
-        Database and PDF Content: {results}
-        User Query: {input_text}
-
-
-        Response:
-        """
+"""
 
 prompt=PromptTemplate(
             input_variables=["context","input_text"],
@@ -297,8 +280,8 @@ if submit:
                         
             
 
-button=st.toggle("Deep Search")
-if button:
-                st.write("Deep Search mode is on")
-                output2=get_response(input_text)   
-                st.write(output2)
+# button=st.toggle("Deep Search")
+# if button:
+#                 st.write("Deep Search mode is on")
+#                 output2=get_response(input_text)   
+#                 st.write(output2)

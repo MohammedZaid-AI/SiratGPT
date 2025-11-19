@@ -269,7 +269,8 @@ if submit:
                 if quran:
                     combined_data += quran[0]["text"] + "\n"
                         
-                output = chain.run(context=combined_data, input_text=input_text)
+                output = chain.invoke({"context": combined_data, "input_text": input_text})
+
                             
                             
                 if "Response:" in output:

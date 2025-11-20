@@ -76,14 +76,6 @@ os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
         #     logging.info("No hadith results found")
         #     return None 
 
-loader=DirectoryLoader(
-        path="pdfs/",
-        glob="**/*.pdf",
-        loader_cls=PyPDFLoader,
-        show_progress=False
-        )
-
-docs=loader.load()
 
 #Quran RAG
 class ChunkManager:
@@ -164,19 +156,6 @@ class VectorStoreManager:
         print(f"Current collection size: {self.collection.count()}")
 
 
-#calling
-
-chunk_manager=ChunkManager()
-chunks=chunk_manager.chunk_documents(docs)
-
-vector_store_manager=VectorStoreManager()
-
-embedding_manager=EmbeddingManager()
-embeddings=embedding_manager.get_embeddings(chunks)
-
-
-vector_store_manager.add_documents(chunks,embeddings)
-
 
 
 class RAGRetriever:
@@ -213,11 +192,36 @@ class RAGRetriever:
             print(f"Metadata: {res['metadata']}")
             print(f"Content:\n{res['text'][:400]}...")  # show first 400 chars
 
+@st.cache_resource
+def load_index():
+    vectorstore=VectorStoreManager()
+
+    if vectorstore.count>0:
+        embedding_manager=EmbeddingManager()
+        return vectorstore,embedding_manager
+
+    loader = DirectoryLoader(
+        path="pdfs/",
+        glob="**/*.pdf",
+        loader_cls=PyPDFLoader
+    )
+
+    docs = loader.load()
+
+    chunker=ChunkManager()
+    chunks=chunker.chunk_documents(docs)
+
+    embeddings=embedding_manager.get_embeddings(chunks)
+    vectorstore.add_documents(chunks,embeddings)
+    return vectorstore,embedding_manager
+
+
 
 st.title("Sirat GPT")
 st.header("LETS KNOW MORE ABOUT ISLAM")
 input_text=st.text_input("ENTER YOUR CHAT HERE")
 
+vector_store_manager,embedding_manager=load_index()
 retriever=RAGRetriever(vector_store_manager,embedding_manager)
 # retriever.pretty_print(results)
             

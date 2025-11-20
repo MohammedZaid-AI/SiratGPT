@@ -152,8 +152,13 @@ class VectorStoreManager:
                 documents=[doc.page_content],
                 embeddings=[embedding.tolist()]
             )
-        print(f"successfully added {len(documents)} to the vector store")
-        print(f"Current collection size: {self.collection.count()}")
+            print(f"successfully added {len(documents)} to the vector store")
+            print(f"Current collection size: {self.collection.count()}")
+            
+    def count(self):
+        return self.collection.count()
+
+    
 
 
 
@@ -196,7 +201,7 @@ class RAGRetriever:
 def load_index():
     vectorstore=VectorStoreManager()
 
-    if vectorstore.count>0:
+    if vectorstore.count()>0:
         embedding_manager=EmbeddingManager()
         return vectorstore,embedding_manager
 
@@ -211,6 +216,7 @@ def load_index():
     chunker=ChunkManager()
     chunks=chunker.chunk_documents(docs)
 
+    embedding_manager=EmbeddingManager()
     embeddings=embedding_manager.get_embeddings(chunks)
     vectorstore.add_documents(chunks,embeddings)
     return vectorstore,embedding_manager

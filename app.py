@@ -222,7 +222,7 @@ retriever=RAGRetriever(vector_store_manager,embedding_manager)
 # retriever.pretty_print(results)
             
 llm =ChatGoogleGenerativeAI(
-            model="gemini-2.5-pro",
+            model="gemini-2.0-flash",
             temperature=0.5,
             max_tokens=300
         )
@@ -231,7 +231,6 @@ llm =ChatGoogleGenerativeAI(
 
 
 system_prompt = """
-...
 Database and PDF Content: {context}
 User Query: {input_text}
 
@@ -266,18 +265,17 @@ if submit:
 
                 # if hadith:
                 #     combined_data += hadith + "\n"
-                if quran:
-                    combined_data += quran[0]["text"] + "\n"
+                for r in quran:
+                    combined_data += r["text"] + "\n"
                         
                 output = chain.invoke({"context": combined_data, "input_text": input_text})
 
                             
-                            
-                if "Response:" in output:
-                    clean_response = output.split("Response:")[-1].strip()
+                    
+                clean_response = output.content.strip()
                         
                             
-                    st.write(clean_response) 
+                st.write(clean_response) 
                         
             
 

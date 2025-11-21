@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SiratGPT - Islamic Knowledge Assistant</title>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #1E5C42;
+            --primary-light: #2A7354;
+            --primary-dark: #124B35;
+            --secondary: #E8F4EF;
+            --accent: #D4AF37;
+            --text: #333333;
+            --text-light: #666666;
+            --bg-light: #F9FAFC;
+            --white: #FFFFFF;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --border-radius: 10px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-light);
+            color: var(--text);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(to bottom, var(--primary-dark), var(--primary));
+            color: var(--white);
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow);
+            z-index: 10;
+        }
+
+        .sidebar-header {
+            padding: 25px 20px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 24px;
+            color: var(--accent);
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .new-chat-btn {
+            margin: 10px 20px 20px;
+            background-color: var(--accent);
+            color: var(--primary-dark);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .new-chat-btn:hover {
+            background-color: #C9A41B;
+        }
+
+        /* Main Layout */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 15px 30px;
+            background-color: var(--white);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .menu-toggle {
+            display: none;
+            margin-right: auto;
+            font-size: 20px;
+            color: var(--text-light);
+        }
+
+        .profile-menu {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            cursor: pointer;
+            font-size: 18px;
+            color: var(--text-light);
+        }
+
+        /* Chat Main Area */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px 15%;
+            overflow-y: auto;
+        }
+
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.07;
+            text-align: center;
+        }
+
+        .message {
+            max-width: 85%;
+            margin-bottom: 20px;
+        }
+
+        .message-inner {
+            padding: 14px 18px;
+            border-radius: 14px;
+            line-height: 1.5;
+        }
+
+        .user-message .message-inner {
+            background-color: var(--primary);
+            color: white;
+            border-bottom-right-radius: 0;
+        }
+
+        .assistant-message .message-inner {
+            background-color: var(--white);
+            color: var(--text);
+            border-bottom-left-radius: 0;
+            box-shadow: var(--shadow);
+        }
+
+        /* Input Section */
+        .input-area {
+            padding: 20px 15%;
+            background-color: var(--white);
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .input-container {
+            position: relative;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 15px 50px 15px 20px;
+            border-radius: 30px;
+            font-size: 16px;
+            outline: none;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .send-btn {
+            position: absolute;
+            right: 10px;
+            top: 8px;
+            width: 40px;
+            height: 40px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* Info Panel */
+        .info-panel {
+            width: 320px;
+            background-color: var(--white);
+            border-left: 1px solid rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .info-panel-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--primary-dark);
+        }
+
+        .references-list {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-icon"><i class="fas fa-moon"></i></div>
+            <div class="logo-text">SiratGPT</div>
+        </div>
+
+        <button class="new-chat-btn" id="newChatBtn">
+            <i class="fas fa-plus"></i> New Conversation
+        </button>
+
+        <div style="
+            padding: 10px 20px;
+            font-size: 12px;
+            opacity: 0.7;
+            text-align: center;
+        ">
+            Note: SiratGPT provides responses based on Quranic context but may not always be fully accurate. Always consult a scholar for religious rulings.
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+
+        <!-- Header -->
+        <div class="header">
+            <div class="menu-toggle"><i class="fas fa-bars"></i></div>
+
+            <div class="profile-menu">
+                <div class="theme-toggle">
+                    <i class="fas fa-sun"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="chat-container">
+
+            <!-- Chat Main -->
+            <div class="chat-main">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="watermark">
+                        <i class="fas fa-moon" style="font-size: 70px;"></i>
+                        <div style="font-size: 32px; font-weight: 800;">SIRATGPT</div>
+                    </div>
+                </div>
+
+                <!-- Input -->
+                <div class="input-area">
+                    <div class="input-container">
+                        <input type="text" id="chatInput" class="chat-input"
+                               placeholder="Ask something about Islam...">
+                        <button id="sendBtn" class="send-btn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+
+                    <div class="deep-search-toggle" style="margin-top:10px; display:flex;align-items:center;gap:10px;">
+                        <div class="toggle-switch" id="deepSearchToggle"
+                             style="width:40px;height:20px;background:#ccc;border-radius:20px;position:relative;cursor:pointer;">
+                            <div class="toggle-handle"
+                                 style="width:18px;height:18px;background:white;border-radius:50%;position:absolute;top:1px;left:1px;transition:0.2s;"></div>
+                        </div>
+                        <span style="font-size:14px;color:var(--text-light);">Deep Search Mode</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="info-panel">
+                <div class="info-panel-header">References & Sources</div>
+                <div id="referencesList" class="references-list">
+                    Ask a question to see references from Quranic content.
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    const chatMessages = document.getElementById("chatMessages");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const deepSearchToggle = document.getElementById("deepSearchToggle");
+    const referencesList = document.getElementById("referencesList");
+    const newChatBtn = document.getElementById("newChatBtn");
+
+    let deepSearch = false;
+
+    // Toggle deep search
+    deepSearchToggle.addEventListener("click", () => {
+        deepSearch = !deepSearch;
+        deepSearchToggle.style.background = deepSearch ? "var(--accent)" : "#ccc";
+        deepSearchToggle.querySelector(".toggle-handle").style.transform =
+            deepSearch ? "translateX(20px)" : "translateX(0)";
+    });
+
+    // Add messages to UI
+    function addMessage(text, isUser = false) {
+        const watermark = document.querySelector(".watermark");
+        if (watermark) watermark.style.display = "none";
+
+        const msg = document.createElement("div");
+        msg.className = "message " + (isUser ? "user-message" : "assistant-message");
+
+        const msgInner = document.createElement("div");
+        msgInner.className = "message-inner";
+        msgInner.textContent = text;
+
+        msg.appendChild(msgInner);
+        chatMessages.appendChild(msg);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Update references panel
+    function updateReferences(text) {
+        referencesList.innerHTML = `
+            <strong>Sources Used</strong><br><br>
+            <span style="font-size:13px;">Context retrieved from Quran-based vector database.</span>
+        `;
+    }
+
+    // Send message to Flask backend
+    async function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        addMessage(text, true);
+        chatInput.value = "";
+
+        // Typing indicator
+        const typing = document.createElement("div");
+        typing.className = "message assistant-message";
+        typing.innerHTML = `<div class="message-inner">SiratGPT is thinking...</div>`;
+        chatMessages.appendChild(typing);
+
+        const formData = new FormData();
+        formData.append("input_text", text);
+
+        try {
+            const response = await fetch("/api/query", {
+                method: "POST",
+                body: formData
+            });
+
+            chatMessages.removeChild(typing);
+
+            if (!response.ok) {
+                addMessage("Server error: " + response.statusText);
+                return;
+            }
+
+            const data = await response.json();
+            addMessage(data.response);
+            updateReferences(data.response);
+
+        } catch (err) {
+            chatMessages.removeChild(typing);
+            addMessage("Error: Unable to reach SiratGPT server.", false);
+        }
+    }
+
+    // Send on button click
+    sendBtn.addEventListener("click", sendMessage);
+
+    // Send on Enter
+    chatInput.addEventListener("keypress", e => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // New chat: clear everything
+    newChatBtn.addEventListener("click", () => {
+        chatMessages.innerHTML = `
+            <div class="watermark">
+                <i class="fas fa-moon" style="font-size:70px;"></i>
+                <div style="font-size:32px;font-weight:800;">SIRATGPT</div>
+            </div>
+        `;
+        referencesList.innerHTML = "Ask a question to see references.";
+    });
+
+});
+</script>
+
+</body>
+</html>

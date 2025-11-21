@@ -1,128 +1,230 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, render_template
+
 import logging
 import sys
 import os
 import traceback
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, 
-                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                   handlers=[logging.StreamHandler(sys.stdout)])
+# -------------------------
+# IMPORT YOUR STREAMLIT RAG COMPONENTS
+# -------------------------
+
+from sentence_transformers import SentenceTransformer
+import chromadb
+import uuid
+import numpy as np
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import PromptTemplate
+
+from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+
+from dotenv import load_dotenv
+load_dotenv()
+
+os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
+
+# -------------------------
+# LOGGING
+# -------------------------
+
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(levelname)s - %(message)s",
+                    handlers=[logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger(__name__)
 
-# Import functions from app.py
-try:
-    from app import get_hadith, get_quran, get_response, chain
-    logger.info("Successfully imported functions from app.py")
-except ImportError as e:
-    logger.error(f"Error importing from app.py: {e}")
-    logger.error(traceback.format_exc())
 
-app = Flask(__name__, static_url_path='')
+# -------------------------
+# CHUNK MANAGER
+# -------------------------
 
-@app.route('/')
+class ChunkManager:
+    def __init__(self, chunk_size=2000, chunk_overlap=300):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+
+    def chunk_documents(self, docs):
+        splitter = RecursiveCharacterTextSplitter(chunk_size=self.chunk_size,
+                                                  chunk_overlap=self.chunk_overlap)
+        chunks = []
+        for doc in docs:
+            pieces = splitter.split_documents([doc])
+            chunks += pieces
+        return chunks
+
+
+# -------------------------
+# EMBEDDING MANAGER
+# -------------------------
+
+class EmbeddingManager:
+    def __init__(self, model_name="all-MiniLM-L6-v2"):
+        self.model = SentenceTransformer(model_name)
+
+    def get_embeddings(self, chunks):
+        texts = [c.page_content for c in chunks]
+        return self.model.encode(texts)
+
+
+# -------------------------
+# VECTORSTORE MANAGER
+# -------------------------
+
+class VectorStoreManager:
+    def __init__(self, name="Quran", persist="./vectorstore"):
+        self.client = chromadb.PersistentClient(path=persist)
+        self.collection = self.client.get_or_create_collection(
+            name=name,
+            metadata={"description": "Quran embeddings"}
+        )
+
+    def add_documents(self, chunks, embeddings):
+        for i, (doc, emb) in enumerate(zip(chunks, embeddings)):
+            doc_id = f"doc_{uuid.uuid4().hex[:8]}_{i}"
+            metadata = dict(doc.metadata)
+            metadata["context"] = doc.page_content
+            self.collection.add(
+                ids=[doc_id],
+                documents=[doc.page_content],
+                metadatas=[metadata],
+                embeddings=[emb.tolist()]
+            )
+        print(f"Added {len(chunks)} new chunks.")
+
+    def count(self):
+        return self.collection.count()
+
+
+# -------------------------
+# RAG RETRIEVER
+# -------------------------
+
+class RAGRetriever:
+    def __init__(self, vs, em, top_k=3):
+        self.vs = vs
+        self.em = em
+        self.top_k = top_k
+
+    def retrieve(self, query):
+        q_emb = self.em.model.encode([query])[0]
+
+        results = self.vs.collection.query(
+            query_embeddings=[q_emb.tolist()],
+            n_results=self.top_k
+        )
+
+        output = []
+        for i in range(len(results["documents"][0])):
+            output.append({
+                "text": results["documents"][0][i],
+                "metadata": results["metadatas"][0][i],
+                "distance": results["distances"][0][i]
+            })
+        return output
+
+
+# -------------------------
+# LOAD OR BUILD VECTORSTORE (ONLY ONCE)
+# -------------------------
+
+def load_index():
+    vs = VectorStoreManager()
+    em = EmbeddingManager()
+
+    # If vectorstore already built → don't rebuild
+    if vs.count() > 0:
+        return vs, em
+
+    # Otherwise build index the first time
+    loader = DirectoryLoader(
+        path="pdfs/",
+        glob="**/*.pdf",
+        loader_cls=PyPDFLoader
+    )
+    docs = loader.load()
+
+    chunker = ChunkManager()
+    chunks = chunker.chunk_documents(docs)
+
+    embeddings = em.get_embeddings(chunks)
+    vs.add_documents(chunks, embeddings)
+
+    return vs, em
+
+
+vectorstore, embedding_manager = load_index()
+retriever = RAGRetriever(vectorstore, embedding_manager)
+
+
+# -------------------------
+# LLM SETUP
+# -------------------------
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.0-flash",
+    temperature=0.9,
+    max_output_tokens=1000
+)
+
+prompt = PromptTemplate(
+    input_variables=["context", "query"],
+    template="""
+You are SiratGPT, an Islamic knowledge assistant.
+Use only the given context from the Quran data.
+
+Context:
+{context}
+
+User Question:
+{query}
+
+Answer respectfully:
+"""
+)
+
+chain = prompt | llm
+
+
+# -------------------------
+# FLASK SETUP
+# -------------------------
+
+app = Flask(__name__)
+
+
+@app.route("/")
 def index():
-    """Serve the main HTML page"""
-    return send_from_directory('.', 'index.html')
+    return render_template("index.html")
 
-@app.route('/api/query', methods=['POST'])
-def handle_query():
-    """Handle POST requests from the frontend and process using app.py functions"""
+
+@app.route("/api/query", methods=["POST"])
+def query_api():
     try:
-        # Get form data
-        input_text = request.form.get('input_text')
-        deep_search = request.form.get('deep_search', 'false').lower() == 'true'
-        source = 'both'  # Always use both sources
-        
-        logger.info(f"Received query: {input_text}, Deep Search: {deep_search}")
-        
-        # Special case for creator question
-        if "created" in input_text.lower() and "sirat" in input_text.lower():
-            response = "SiratGPT was created by Zaid, a visionary AI engineer and entrepreneur who is passionate about fusing technology with knowledge. As the Founder of HatchUp.ai, Zaid built SiratGPT to bring deep Islamic insights to the digital world, combining modern AI techniques with timeless wisdom. His expertise in AI, app development, and automation drives this project, making SiratGPT a unique and intelligent guide for seekers of knowledge."
-            return jsonify({"response": response})
-        
-        # Get data from both sources
-        hadith = None
-        quran = None
-        
-        logger.info("Starting to fetch data from sources...")
-        
-        try:
-            logger.info("Fetching hadith data...")
-            hadith = get_hadith(input_text)
-            logger.info(f"Hadith data fetched: {hadith is not None}")
-        except Exception as e:
-            logger.error(f"Error fetching hadith data: {str(e)}")
-            logger.error(traceback.format_exc())
-            
-        try:
-            logger.info("Fetching quran data...")
-            quran = get_quran(input_text)
-            logger.info(f"Quran data fetched: {quran is not None}")
-        except Exception as e:
-            logger.error(f"Error fetching quran data: {str(e)}")
-            logger.error(traceback.format_exc())
-        
-        combined_data = ""
-        if hadith:
-            combined_data += hadith + "\n"
-        if quran:
-            combined_data += quran + "\n"
-        
-        logger.info(f"Combined data length: {len(combined_data)}")
-        
-        # If we don't have any data, return a fallback response
-        if not combined_data:
-            logger.warning("No data found in sources, using fallback response")
-            return jsonify({"response": f"I couldn't find specific information about '{input_text}' in my database. Please try asking about another Islamic topic like Ramadan, prayer times, Zakat, or Hajj."})
-        
-        # Process using LangChain
-        logger.info("Running LLM chain...")
-        try:
-            output = chain.run(dataset=combined_data, input=input_text)
-            logger.info("LLM chain completed")
-        except Exception as e:
-            logger.error(f"Error running LLM chain: {str(e)}")
-            logger.error(traceback.format_exc())
-            return jsonify({"response": f"I encountered an issue processing your query. Here's what I found: {combined_data}"})
-        
-        # Clean the response if needed
-        if "Response:" in output:
-            response = output.split("Response:")[-1].strip()
-        else:
-            response = output
-        
-        # If deep search is enabled, add additional info
-        if deep_search:
-            try:
-                logger.info("Performing deep search...")
-                deep_search_result = get_response(input_text)
-                response += "\n\n--- Deep Search Results ---\n" + deep_search_result
-                logger.info("Deep search completed")
-            except Exception as e:
-                logger.error(f"Error in deep search: {str(e)}")
-                logger.error(traceback.format_exc())
-                response += "\n\n--- Deep Search Results ---\nUnable to perform deep search due to an error."
-        
-        logger.info("Sending response to client")
-        return jsonify({"response": response})
-    
+        user_input = request.form.get("input_text", "")
+
+        # Special Case
+        if "created" in user_input.lower() and "sirat" in user_input.lower():
+            return jsonify({"response": "SiratGPT was created by Zaid, a visionary AI engineer and entrepreneur who is passionate about fusing technology with knowledge. As the Founder of HatchUp.ai, Zaid built SiratGPT to bring deep Islamic insights to the digital world, combining modern AI techniques with timeless wisdom. His expertise in AI, app development, and automation drives this project, making SiratGPT a unique and intelligent guide for seekers of knowledge"})
+
+        # Retrieve context
+        results = retriever.retrieve(user_input)
+        context = "\n\n".join([r["text"] for r in results])
+
+        # If no context found
+        if not context.strip():
+            return jsonify({"response": "I couldn't find relevant Quran context for your question."})
+
+        # Run LLM
+        response = chain.invoke({"context": context, "query": user_input})
+        return jsonify({"response": response.content})
+
     except Exception as e:
-        logger.error(f"Unhandled error in handle_query: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({"response": f"I apologize, but I encountered an error processing your request. Please try again with a different question. Error details: {str(e)}"})
+        print(traceback.format_exc())
+        return jsonify({"response": f"Error: {str(e)}"})
 
-@app.route('/static/<path:path>')
-def serve_static(path):
-    """Serve static files"""
-    return send_from_directory('static', path)
 
-@app.route('/test')
-def test():
-    """Test endpoint to check if server is running"""
-    return jsonify({"status": "ok", "message": "Server is running correctly"})
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    logger.info(f"Starting server on port {port}")
-    app.run(debug=True, host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))
+    print(f"🔥 SiratGPT Flask server running on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
